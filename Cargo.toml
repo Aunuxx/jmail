@@ -1,0 +1,14 @@
+[package]
+name = "jmail"
+version = "0.1.0"
+edition = "2024"
+authors = ["frin <lucas@kiwifrin.com>"]
+
+[lib]
+crate-type = ["cdylib"]
+
+[dependencies]
+worker = { version = "0.8" }
+worker-macros = { version = "0.8" }
+jmap-server = "0.4.0"
+jmap-mail-server = "0.4.0"
