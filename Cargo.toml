@@ -10,5 +10,5 @@ crate-type = ["cdylib"]
 [dependencies]
 worker = { version = "0.8" }
 worker-macros = { version = "0.8" }
-jmap-server = "0.4.0"
-jmap-mail-server = "0.4.0"
+serde = "1.0.229"
+serde_json = "1.0.154"
