@@ -1,15 +1,17 @@
 mod jmap;
+pub mod routes;
+pub mod data;
+
+use serde_json::json;
 use worker::*;
 
 #[event(fetch)]
 async fn fetch(
-    _req: Request,
-    _env: Env,
-    _ctx: Context,
+    req: Request,
+    env: Env,
+    ctx: Context,
 ) -> Result<Response> {
-    let id = jmap::types::Id::try_from("test".to_string());
-    console_log!("{}", id?.as_str());
-    Response::ok("Hello World! yay")
+    routes::handle(req, env, ctx).await
 }
 
 

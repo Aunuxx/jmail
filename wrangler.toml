@@ -2,5 +2,15 @@ name = "jmail"
 main = "build/index.js"
 compatibility_date = "2026-10-30"
 
+[[r2_buckets]]
+binding = "jmail_bucket"
+bucket_name = "jmail-bucket"
+remote = false
+
+[[d1_databases]]
+binding = "jmail_d1"
+database_name = "jmail-d1"
+database_id = "cd3e2516-1a25-4c3c-b34a-841ab7de948f"
+
 [build]
 command = "cargo install -q \"worker-build@^0.8\" && worker-build --release"
