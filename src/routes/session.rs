@@ -1,20 +1,42 @@
 use worker::{console_log, Context, Env, Request, Response};
-use serde_json::json;
+use serde_json::{json, Map};
+use crate::data::Data;
+use crate::auth::api::API;
 
 pub async fn handle(
-    req: Request,
-    env: Env,
-    ctx: Context,
+    _req: Request,
+    _env: Env,
+    _ctx: Context,
+    _data: Data
 ) -> worker::Result<Response> {
-    let auth_header = match req.headers().get("Authorization")? {
-        Some(header) => header,
-        None => return Response::error("Missing Authorization Header", 401),
+    let api = match API::try_new(_req) {
+        Some(api) => api,
+        None => return Response::error("API format invalid", 401),
     };
-    let token = match auth_header.strip_prefix("Bearer ") {
-        Some(t) => t.trim(),
-        None => return Response::error("Invalid Authorization Format. Expected Bearer token.", 401),
+    let accounts = _data.get_accounts(&api).await?;
+    if accounts.is_empty() {
+        return Response::error("Invalid API key", 401);
+    }
+    let primary =  match accounts.iter().find(|account|account.is_primary).cloned() {
+        Some(account) => account,
+        None => return Response::error("No Primary Account", 403),
     };
-    console_log!("{}", token);
+
+    let mut account_map = Map::new();
+
+    for account in accounts {
+        account_map.insert(
+            account.id,
+            json!({
+                "name": account.email,
+                "isReadOnly": !account.can_read,
+                "isPersonal": true,
+                "accountCapabilities": {
+                    "urn:ietf:params:jmap:mail": {}
+                }
+            }),
+        );
+    }
     let response =
         json!({
             "capabilities": {
@@ -29,14 +51,15 @@ pub async fn handle(
                     "collationAlgorithms": []
                 },
             },
-            "accounts": {},
-            "primaryAccounts": {},
-            "username": "user@example.com",
-            "apiUrl": "http://192.168.1.33:8787/api/",
+            "accounts": account_map,
+            "primaryAccounts": { "urn:ietf:params:jmap:mail": primary.id },
+            "username": primary.email,
+            "apiUrl": "http://192.168.1.33:8787/api",
             "downloadUrl": "http://192.168.1.33:8787/download/{accountId}/{blobId}/{name}?accept={type}",
             "uploadUrl": "http://192.168.1.33:8787/upload/{accountId}/",
             "eventSourceUrl": "http://192.168.1.33:8787/eventsource/?types={types}&closeafter={closeafter}&ping={ping}",
             "state": "0"
         });
-return Response::from_json(&response);
+
+    Response::from_json(&response)
 }

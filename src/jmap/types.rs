@@ -1,9 +1,10 @@
+use std::collections::HashMap;
 use serde::Serialize;
 use serde::Deserialize;
 use std::io::ErrorKind::InvalidData;
 use std::ops::Index;
-use worker::console_log;
-use worker::js_sys::TypeError;
+use worker::{console_log, Method};
+use worker::js_sys::{Map, TypeError};
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
@@ -157,3 +158,47 @@ fn days_in_month(year: i64, month: u32) -> u32 {
         _ => 0, // unreachable when month range is validated by caller
     }
 }
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Account {
+    pub id: String,
+    pub email: String,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub is_primary: bool,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub can_read: bool,
+    #[serde(deserialize_with = "deserialize_bool")]
+    can_write: bool,
+    #[serde(deserialize_with = "deserialize_bool")]
+    can_delete: bool,
+}
+
+
+
+fn deserialize_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = f64::deserialize(deserializer)?;
+    Ok(value != 0.0)
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Request {
+    pub using: Vec<String>,
+    pub method_calls: Vec<(String, serde_json::Value, String)>, // TODO
+    pub created_ids: Option<HashMap<Id, Id>>,
+
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Response {
+    pub method_responses: Vec<String>,
+    pub created_ids: Option<HashMap<Id, Id>>,
+    pub session_state: String,
+}
+

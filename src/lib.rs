@@ -1,6 +1,7 @@
 mod jmap;
 pub mod routes;
 pub mod data;
+pub mod auth;
 
 use serde_json::json;
 use worker::*;
