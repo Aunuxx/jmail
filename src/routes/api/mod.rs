@@ -11,6 +11,10 @@ pub async fn handle(
     _data: Data
 ) -> worker::Result<Response> {
     let requests: types::Request = _req.json().await?;
+    for (method, args, id) in &requests.method_calls {
+        
+    }
+
     console_log!("{:?}", requests.method_calls);
     Response::ok("")
 }

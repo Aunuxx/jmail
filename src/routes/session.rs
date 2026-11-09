@@ -22,6 +22,8 @@ pub async fn handle(
         None => return Response::error("No Primary Account", 403),
     };
 
+    let state = _data.get_state(&api).await?;
+
     let mut account_map = Map::new();
 
     for account in accounts {
@@ -58,7 +60,7 @@ pub async fn handle(
             "downloadUrl": "http://192.168.1.33:8787/download/{accountId}/{blobId}/{name}?accept={type}",
             "uploadUrl": "http://192.168.1.33:8787/upload/{accountId}/",
             "eventSourceUrl": "http://192.168.1.33:8787/eventsource/?types={types}&closeafter={closeafter}&ping={ping}",
-            "state": "0"
+            "state": state.state,
         });
 
     Response::from_json(&response)

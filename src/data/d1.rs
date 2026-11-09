@@ -24,6 +24,20 @@ impl D1Store {
         Ok(result.results::<types::Account>()?)
     }
 
+    pub async fn get_state(&self, api: &API) -> Result<types::State> {
+        let statement = self.db.prepare(
+            "SELECT state FROM state
+            WHERE id = ?1"
+        );
+        let statement = statement.bind(&[
+            hex::encode(api.hash).into()
+        ])?;
+        match statement.first::<types::State>(None).await? {
+            Some(state) => Ok(state),
+            None => Err("State not found".into()),
+        }
+    }
+
     // pub async fn init(&self) -> Result<()> {
     //     let file = include_str!("migrations/001_initial.sql");
     //     self.db.exec(file).await?;

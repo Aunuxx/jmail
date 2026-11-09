@@ -189,7 +189,7 @@ where
 #[serde(rename_all = "camelCase")]
 pub struct Request {
     pub using: Vec<String>,
-    pub method_calls: Vec<(String, serde_json::Value, String)>, // TODO
+    pub method_calls: Vec<(String, serde_json::Value, Id)>, // TODO
     pub created_ids: Option<HashMap<Id, Id>>,
 
 }
@@ -200,5 +200,20 @@ pub struct Response {
     pub method_responses: Vec<String>,
     pub created_ids: Option<HashMap<Id, Id>>,
     pub session_state: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetResponse<T> {
+    pub account_id: Id,
+    pub session_state: String,
+    pub list: Vec<T>,
+    pub not_found: Vec<Id>,
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct State {
+    pub state: String,
 }
 

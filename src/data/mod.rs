@@ -21,7 +21,11 @@ impl Data {
         })
     }
     
-    pub async fn get_accounts(self, api: &API) -> Result<Vec<types::Account>> {
+    pub async fn get_accounts(&self, api: &API) -> Result<Vec<types::Account>> {
         self.db.get_accounts(api).await
+    }
+
+    pub async fn get_state(&self, api: &API) -> Result<types::State> {
+        self.db.get_state(api).await
     }
 }
