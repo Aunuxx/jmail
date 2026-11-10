@@ -13,7 +13,6 @@ pub async fn handle(
 ) -> Result<Response> {
     let path = req.path();
     let data = Data::new(&env)?;
-
     match path.as_str() {
         "/.well-known/jmap" => {
             session::handle(req, env, ctx, data).await

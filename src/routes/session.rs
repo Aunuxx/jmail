@@ -1,7 +1,8 @@
-use worker::{console_log, Context, Env, Request, Response};
+use worker::{Context, Env, Request, Response};
 use serde_json::{json, Map};
 use crate::data::Data;
 use crate::auth::api::API;
+use crate::console_log;
 
 pub async fn handle(
     _req: Request,
@@ -9,7 +10,7 @@ pub async fn handle(
     _ctx: Context,
     _data: Data
 ) -> worker::Result<Response> {
-    let api = match API::try_new(_req) {
+    let api = match API::try_new(&_req) {
         Some(api) => api,
         None => return Response::error("API format invalid", 401),
     };
@@ -22,7 +23,7 @@ pub async fn handle(
         None => return Response::error("No Primary Account", 403),
     };
 
-    let state = _data.get_state(&api).await?;
+    let state = _data.get_state(&api, "session".to_string()).await?;
 
     let mut account_map = Map::new();
 

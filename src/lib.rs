@@ -1,10 +1,8 @@
 mod jmap;
 pub mod routes;
 pub mod data;
+pub use worker::*;
 pub mod auth;
-
-use serde_json::json;
-use worker::*;
 
 #[event(fetch)]
 async fn fetch(

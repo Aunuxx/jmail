@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
-use worker::{console_log, Request};
+use worker::{Request};
 
 
 #[derive(Serialize, Deserialize)]
@@ -9,7 +9,7 @@ pub struct API {
 }
 
 impl API {
-    pub fn try_new(req: Request) -> Option<Self> {
+    pub fn try_new(req: &Request) -> Option<Self> {
         let auth_header = match req.headers().get("Authorization").unwrap() {
             Some(header) => header,
             None => return None,

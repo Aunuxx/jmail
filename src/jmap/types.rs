@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 use serde::Serialize;
 use serde::Deserialize;
-use std::io::ErrorKind::InvalidData;
-use std::ops::Index;
-use worker::{console_log, Method};
-use worker::js_sys::{Map, TypeError};
+use crate::console_log;
+use crate::wasm_bindgen::JsValue;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
 #[serde(transparent)]
-pub struct Id(String);
+pub struct Id(pub String);
 
 impl Id {
     pub fn as_str(&self) -> &str {
@@ -36,8 +34,7 @@ impl TryFrom<String> for Id {
         }
 
 
-        Ok(Self(format!("a{}", value)))
-
+        Ok(Self(value))
     }
 }
 
@@ -160,6 +157,18 @@ fn days_in_month(year: i64, month: u32) -> u32 {
 }
 
 
+
+fn deserialize_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
+where
+    D: serde::Deserializer<'de>,
+{
+    let value = f64::deserialize(deserializer)?;
+    Ok(value != 0.0)
+}
+
+
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Account {
     pub id: String,
@@ -175,13 +184,100 @@ pub struct Account {
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct MailboxRights {
+    pub may_read_items: bool,
+    pub may_remove_items: bool,
+    pub may_set_seen: bool,
+    pub may_set_keywords: bool,
+    pub may_create_child: bool,
+    pub may_rename: bool,
+    pub may_delete: bool,
+    pub may_submit: bool,
+}
 
-fn deserialize_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
-where
-    D: serde::Deserializer<'de>,
-{
-    let value = f64::deserialize(deserializer)?;
-    Ok(value != 0.0)
+impl From<u8> for MailboxRights {
+    fn from(value: u8) -> Self {
+        MailboxRights {
+            may_read_items: (value & 0x01) != 0,
+            may_remove_items: (value & 0x02) != 0,
+            may_set_seen: (value & 0x04) != 0,
+            may_set_keywords: (value & 0x08) != 0,
+            may_create_child: (value & 0x10) != 0,
+            may_rename: (value & 0x20) != 0,
+            may_delete: (value & 0x40) != 0,
+            may_submit: (value & 0x80) != 0,
+        }
+    }
+}
+
+impl From<MailboxRights> for u8 {
+    fn from(m: MailboxRights) -> Self {
+        let mut value: u8 = 0;
+        value |= u8::from(m.may_read_items);
+        value |= u8::from(m.may_remove_items) << 1;
+        value |= u8::from(m.may_set_seen) << 2;
+        value |= u8::from(m.may_set_keywords) << 3;
+        value |= u8::from(m.may_create_child) << 4;
+        value |= u8::from(m.may_rename) << 5;
+        value |= u8::from(m.may_delete) << 6;
+        value |= u8::from(m.may_submit) << 7;
+        value
+    }
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Mailbox {
+    pub id: Id,
+    pub name: String,
+    pub parent_id: Option<Id>,
+    pub roll: Option<String>,
+    pub sort_order: u32,
+    pub total_emails: u32,
+    pub unread_emails: u32,
+    pub total_threads: u32,
+    pub unread_threads: u32,
+    pub my_rights: MailboxRights,
+    pub is_subscribed: bool,
+}
+
+impl From<D1Mailbox> for Mailbox {
+    fn from(m: D1Mailbox) -> Self {
+        Self {
+            id: m.id,
+            name: m.name,
+            parent_id: m.parent_id,
+            roll: m.roll,
+            sort_order: m.sort_order,
+            total_emails: m.total_emails,
+            unread_emails: m.unread_emails,
+            total_threads: m.total_threads,
+            unread_threads: m.unread_threads,
+            my_rights: MailboxRights::from(m.my_rights),
+            is_subscribed: m.is_subscribed,
+        }
+    }
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct D1Mailbox {
+    pub id: Id,
+    pub account_id: Id,
+    pub name: String,
+    pub parent_id: Option<Id>,
+    pub roll: Option<String>,
+    pub sort_order: u32,
+    pub total_emails: u32,
+    pub unread_emails: u32,
+    pub total_threads: u32,
+    pub unread_threads: u32,
+    pub my_rights: u8,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub is_subscribed: bool,
 }
 
 
@@ -191,29 +287,58 @@ pub struct Request {
     pub using: Vec<String>,
     pub method_calls: Vec<(String, serde_json::Value, Id)>, // TODO
     pub created_ids: Option<HashMap<Id, Id>>,
-
 }
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetRequest {
+    pub account_id: Id,
+    pub ids: Option<Vec<Id>>,
+    pub properties: Option<Vec<String>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct GetEmailRequest {
+    pub account_id: Id,
+    pub ids: Option<Vec<Id>>,
+    pub properties: Option<Vec<String>>,
+    pub body_properties: Vec<String>,
+    pub fetch_text_body_values: Option<bool>,
+    pub fetch_HTML_body_values: Option<bool>,
+    pub fetch_all_body_values: Option<bool>,
+    pub max_body_value_bytes: Option<u32>,
+    
+}
+
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Response {
-    pub method_responses: Vec<String>,
+    pub method_responses: Vec<MethodResponse>,
     pub created_ids: Option<HashMap<Id, Id>>,
-    pub session_state: String,
+    pub session_state: State,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetResponse<T> {
+pub struct GetResponse {
     pub account_id: Id,
-    pub session_state: String,
-    pub list: Vec<T>,
+    pub state: State,
+    pub list: serde_json::Value,
     pub not_found: Vec<Id>,
 }
 
 
+pub type MethodResponse = (
+    String,
+    GetResponse,
+    Id,
+);
+
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct State {
-    pub state: String,
+    pub state: String
 }
 

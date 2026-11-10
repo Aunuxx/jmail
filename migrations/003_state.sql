@@ -1,4 +1,10 @@
 CREATE TABLE IF NOT EXISTS state (
     id TEXT PRIMARY KEY, --hash
-    state TEXT
+    session INTEGER NOT NULL DEFAULT 0,
+    mailbox INTEGER NOT NULL DEFAULT 0,
+    email INTEGER NOT NULL DEFAULT 0,
+    thread INTEGER NOT NULL DEFAULT 0,
+    identity INTEGER NOT NULL DEFAULT 0,
+    email_submission INTEGER NOT NULL DEFAULT 0,
+    vacation_response INTEGER NOT NULL DEFAULT 0
 );
