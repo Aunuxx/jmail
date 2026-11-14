@@ -1,14 +1,45 @@
 CREATE TABLE IF NOT EXISTS emails (
+    accountId TEXT NOT NULL,
     id TEXT PRIMARY KEY,
-    account_id TEXT NOT NULL,
-    blob_id TEXT NOT NULL,
-    thread_id TEXT,
-    subject TEXT,
+    --
+    messageId TEXT,
+    inReplyTo TEXT,
+    "references" TEXT,
     sender TEXT,
-    received_at TEXT NOT NULL,
-    size INT NOT NULL,
-    FOREIGN KEY (account_id) REFERENCES accounts(id)
+    "from" TEXT,
+    "to" TEXT,
+    cc TEXT,
+    bcc TEXT,
+    replyTo TEXT,
+    subject TEXT,
+    sentAt TEXT,
+    bodyStructure TEXT NOT NULL, -- ID
+    bodyValues TEXT NOT NULL,
+    textBody TEXT NOT NULL,
+    htmlBody TEXT NOT NULL,
+    attachments TEXT NOT NULL,
+    hasAttachment BOOLEAN NOT NULL,
+    preview TEXT,
+    FOREIGN KEY (accountId) REFERENCES accounts(id),
+    FOREIGN KEY (bodyStructure) REFERENCES email_body_parts(id)
 );
+
+
+CREATE TABLE IF NOT EXISTS email_body_parts (
+    partId TEXT PRIMARY KEY,
+    blobId TEXT NOT NULL,
+    size Integer NOT NULL,
+    headers TEXT NOT NULL,
+    name TEXT,
+    type TEXT NOT NULL,
+    charset TEXT,
+    disposition TEXT,
+    cid TEXT,
+    language TEXT,
+    location TEXT
+);
+
+
 
 CREATE TABLE IF NOT EXISTS email_mailbox (
     email_id TEXT NOT NULL,

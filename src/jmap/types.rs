@@ -167,6 +167,10 @@ where
 }
 
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct State {
+    pub state: String
+}
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -280,6 +284,71 @@ pub struct D1Mailbox {
     pub is_subscribed: bool,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailHeader {
+    pub name: String,
+    pub value: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailBodyPart {
+    pub part_id: Option<String>,
+    pub blob_id: Option<Id>,
+    pub size: u32,
+    pub headers: Vec<EmailHeader>,
+    pub name: Option<String>,
+    #[serde(rename = "Type")]
+    pub part_type: String,
+    pub charset: Option<String>,
+    pub disposition: Option<String>,
+    pub cid: Option<String>,
+    pub language: Option<Vec<String>>,
+    pub location: Option<String>,
+    pub sub_parts: Option<Vec<EmailBodyPart>>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailBodyValue {
+    pub value: String,
+    pub is_encoding_problem: bool, // false
+    pub is_truncated: bool, // false, true if value has been truncated
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Email {
+    // JMAP
+    pub id: Id,
+    pub blob_id: Id,
+    pub thread_id: Id,
+    pub mailbox_ids: HashMap<Id, bool>,
+    // MESSAGE
+    pub message_id: Option<Vec<String>>,
+    pub in_reply_to: Option<Vec<String>>,
+    pub references: Option<Vec<String>>,
+    pub sender: Option<Vec<String>>,
+    pub from: Option<Vec<String>>,
+    pub to: Option<Vec<String>>,
+    pub cc: Option<Vec<String>>,
+    pub bcc: Option<Vec<String>>,
+    pub reply_to: Option<Vec<String>>,
+    pub subject: Option<String>,
+    pub sent_at: Option<UTCDate>,
+    // STRUCTURE
+    pub body_structure: EmailBodyPart,
+    pub body_values: HashMap<String, EmailBodyValue>,
+    pub text_body: Vec<EmailBodyPart>,
+    pub html_body: Vec<EmailBodyPart>,
+    pub attachments: Vec<EmailBodyPart>,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub has_attachment: bool,
+    pub preview: String,
+}
+
+// ===================== Request Response types =====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -299,16 +368,23 @@ pub struct GetRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct GetEmailRequest {
+pub struct EmailGetRequest {
     pub account_id: Id,
     pub ids: Option<Vec<Id>>,
     pub properties: Option<Vec<String>>,
-    pub body_properties: Vec<String>,
-    pub fetch_text_body_values: Option<bool>,
-    pub fetch_HTML_body_values: Option<bool>,
-    pub fetch_all_body_values: Option<bool>,
-    pub max_body_value_bytes: Option<u32>,
-    
+    // [ "id", "blobId", "threadId", "mailboxIds", "keywords", "size",
+    //  "receivedAt", "messageId", "inReplyTo", "references", "sender", "from",
+    //  "to", "cc", "bcc", "replyTo", "subject", "sentAt", "hasAttachment",
+    //  "preview", "bodyValues", "textBody", "htmlBody", "attachments" ]
+    pub body_properties: Option<Vec<String>>,
+    // [ "partId", "blobId", "size", "name", "type", "charset",
+    //            "disposition", "cid", "language", "location" ]
+    pub fetch_text_body_values: Option<bool>, // false
+    #[serde(rename = "fetchHTMLBodyValues")]
+    pub fetch_html_body_values: Option<bool>, // false
+    pub fetch_all_body_values: Option<bool>, // false
+    pub max_body_value_bytes: Option<u32>, // 0
+
 }
 
 
@@ -335,10 +411,4 @@ pub type MethodResponse = (
     GetResponse,
     Id,
 );
-
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct State {
-    pub state: String
-}
 

@@ -3,11 +3,13 @@ use crate::jmap::types;
 use crate::auth::api::API;
 use hex;
 use worker::wasm_bindgen::JsValue;
-use crate::jmap::types::{D1Mailbox, Id, Mailbox};
+use crate::jmap::types::{D1Mailbox, EmailGetRequest, Id, Mailbox};
 
 pub struct D1Store {
     db: D1Database,
 }
+
+// TODO: ADD PERMISSIONS
 
 impl D1Store {
     pub fn new(db: D1Database) -> D1Store {
@@ -52,5 +54,7 @@ impl D1Store {
         let rows = result.results::<D1Mailbox>()?;
         Ok(rows.into_iter().map(Mailbox::from).collect())
     }
+
+
 }
 

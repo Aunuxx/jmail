@@ -2,7 +2,7 @@ use worker::{console_log, Context, Env, Request, Response};
 use crate::data::Data;
 use crate::auth::api::API;
 use crate::jmap::types;
-use crate::jmap::types::{MethodResponse, GetResponse, Id, GetRequest, Mailbox};
+use crate::jmap::types::{MethodResponse, GetResponse, Id, GetRequest, EmailGetRequest};
 
 
 pub async fn handle(
@@ -40,6 +40,8 @@ pub async fn handle(
                     }
                 }
                 "Email/get" => {
+                    let get_request: EmailGetRequest = serde_json::from_value(args)?;
+                    let emails = _data.get_emails(&get_request).await?;
                     GetResponse {
                         account_id: Id("ab".to_owned()),
                         state: _data.get_state(&api, "email".to_string()).await?,

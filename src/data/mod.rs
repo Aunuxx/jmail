@@ -7,7 +7,7 @@ use worker::{console_log, Bucket, Env, Result};
 use crate::auth::api::API;
 use crate::data::d1::D1Store;
 use crate::jmap::types;
-use crate::jmap::types::Id;
+use crate::jmap::types::{Email, EmailBodyPart, EmailGetRequest, Id, Mailbox};
 
 pub struct Data {
     db: D1Store,
@@ -30,7 +30,17 @@ impl Data {
         self.db.get_state(api, state_type).await
     }
 
-    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<types::Mailbox>> {
+    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<Mailbox>> {
         self.db.get_all_mailboxes(account_id).await
+    }
+
+    pub async fn get_emails(&self, request: &EmailGetRequest) -> Result<Vec<Email>> {
+        let properties: Vec<String> = request.properties.unwrap_or_else(|| ["id", "blobId", "threadId", "mailboxIds", "keywords", "size", "receivedAt", "messageId", "inReplyTo", "references", "sender", "from", "to", "cc", "bcc", "replyTo", "subject", "sentAt", "hasAttachment", "preview", "bodyValues", "textBody", "htmlBody", "attachments"].into());
+        let body_properties: Vec<String> = request.body_properties.unwrap_or_else(|| ["partId", "blobId", "size", "name", "type", "charset", "disposition", "cid", "language", "location"].into());
+        let fetch_text_body_values = request.fetch_text_body_values.unwrap_or(false);
+        let fetch_html_body_values = request.fetch_html_body_values.unwrap_or(false);
+        let fetch_all_body_values = request.fetch_all_body_values.unwrap_or(false);
+        let max_body_value_bytes = request.max_body_value_bytes.unwrap_or(0);
+        
     }
 }
