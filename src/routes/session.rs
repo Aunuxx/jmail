@@ -2,7 +2,6 @@ use worker::{Context, Env, Request, Response};
 use serde_json::{json, Map};
 use crate::data::Data;
 use crate::auth::api::API;
-use crate::console_log;
 
 pub async fn handle(
     _req: Request,

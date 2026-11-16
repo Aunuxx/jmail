@@ -1,7 +1,13 @@
 CREATE TABLE IF NOT EXISTS emails (
-    accountId TEXT NOT NULL,
+    -- JMAP
     id TEXT PRIMARY KEY,
-    --
+    blobId TEXT NOT NULL,
+    threadId TEXT NOT NULL,
+    mailboxIds TEXT NOT NULL,
+    keywords TEXT NOT NULL,
+    size INTEGER NOT NULL,
+    receivedAt TEXT NOT NULL,
+    -- MESSAGE
     messageId TEXT,
     inReplyTo TEXT,
     "references" TEXT,
@@ -13,6 +19,7 @@ CREATE TABLE IF NOT EXISTS emails (
     replyTo TEXT,
     subject TEXT,
     sentAt TEXT,
+    -- STRUCTURE
     bodyStructure TEXT NOT NULL, -- ID
     bodyValues TEXT NOT NULL,
     textBody TEXT NOT NULL,
@@ -20,8 +27,7 @@ CREATE TABLE IF NOT EXISTS emails (
     attachments TEXT NOT NULL,
     hasAttachment BOOLEAN NOT NULL,
     preview TEXT,
-    FOREIGN KEY (accountId) REFERENCES accounts(id),
-    FOREIGN KEY (bodyStructure) REFERENCES email_body_parts(id)
+    FOREIGN KEY (bodyStructure) REFERENCES email_body_parts(partId)
 );
 
 

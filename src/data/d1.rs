@@ -3,7 +3,7 @@ use crate::jmap::types;
 use crate::auth::api::API;
 use hex;
 use worker::wasm_bindgen::JsValue;
-use crate::jmap::types::{D1Mailbox, EmailGetRequest, Id, Mailbox};
+use crate::jmap::types::{D1Mailbox, Email, EmailGetRequest, Id, Mailbox};
 
 pub struct D1Store {
     db: D1Database,
@@ -30,13 +30,13 @@ impl D1Store {
 
     pub async fn get_state(&self, api: &API, state_type: String) -> Result<types::State> {
         let statement = self.db.prepare(
-            "SELECT session FROM state
-            WHERE id = ?1"
+            format!("SELECT {} FROM state
+            WHERE id = ?1", state_type)
         );
         let statement = statement.bind(&[
             hex::encode(api.hash).into()
         ])?;
-        match statement.first::<u8>(Some("session")).await? {
+        match statement.first::<u8>(Some(state_type.as_str())).await? { // TODO
             Some(state) => Ok(types::State { state: state.to_string() }),
             None => Err("State not found".into()),
         }
@@ -55,6 +55,76 @@ impl D1Store {
         Ok(rows.into_iter().map(Mailbox::from).collect())
     }
 
+    pub  async fn get_emails(&self, request: &EmailGetRequest) -> Result<Vec<Email>> {
+        let properties: Vec<String> = request.get_request.properties
+            .clone()
+            .unwrap_or_else(||
+                ["id", "blobId", "threadId", "mailboxIds", "keywords", "size", "receivedAt",
+                    "messageId", "inReplyTo", "references", "sender", "from", "to", "cc", "bcc",
+                    "replyTo", "subject", "sentAt", "hasAttachment", "preview", "bodyValues",
+                    "textBody", "htmlBody", "attachments"]
+                    .map(String::from)
+                    .to_vec());
+        // let body_properties: Vec<String> = request.body_properties.unwrap_or_else(|| ["partId", "blobId", "size", "name", "type", "charset", "disposition", "cid", "language", "location"].into());
+        // let fetch_text_body_values = request.fetch_text_body_values.unwrap_or(false);
+        // let fetch_html_body_values = request.fetch_html_body_values.unwrap_or(false);
+        // let fetch_all_body_values = request.fetch_all_body_values.unwrap_or(false);
+        // let max_body_value_bytes = request.max_body_value_bytes.unwrap_or(0);
 
+        let statement = self.db.prepare(
+            "SELECT ?1 FROM emails"
+        );
+        let statement = statement.bind(&[
+            JsValue::from(properties)
+        ])?;
+        let result = statement.all().await?;
+        Ok(result.results::<Email>()?)
+    }
+    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Email>> {
+        let statement = self.db.prepare(
+            "SELECT * FROM emails
+            WHERE id = ?1"
+        );
+        Ok(vec![Email {
+            id: Id("v".parse()?),
+            blob_id: Id("v".parse()?),
+            thread_id: Id("v".parse()?),
+            mailbox_ids: Default::default(),
+            keywords: Default::default(),
+            size: 0,
+            received_at: types::UTCDate("a".parse()?),
+            message_id: None,
+            in_reply_to: None,
+            references: None,
+            sender: None,
+            from: None,
+            to: None,
+            cc: None,
+            bcc: None,
+            reply_to: None,
+            subject: None,
+            sent_at: None,
+            body_structure: types::EmailBodyPart {
+                part_id: None,
+                blob_id: None,
+                size: 0,
+                headers: vec![],
+                name: None,
+                part_type: "".to_string(),
+                charset: None,
+                disposition: None,
+                cid: None,
+                language: None,
+                location: None,
+                sub_parts: None,
+            },
+            body_values: Default::default(),
+            text_body: vec![],
+            html_body: vec![],
+            attachments: vec![],
+            has_attachment: false,
+            preview: "".to_string(),
+        }])
+    }
 }
 

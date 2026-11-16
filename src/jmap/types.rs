@@ -1,8 +1,13 @@
 use std::collections::HashMap;
+use std::hash::Hash;
+use std::iter::Filter;
 use serde::Serialize;
 use serde::Deserialize;
-use crate::console_log;
-use crate::wasm_bindgen::JsValue;
+
+
+
+// TODO: Add EmailAddress struct?
+
 
 #[non_exhaustive]
 #[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
@@ -51,9 +56,9 @@ impl<'de> Deserialize<'de> for Id {
 #[serde(transparent)]
 pub struct Date(String);
 #[non_exhaustive]
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct UTCDate(String);
+pub struct UTCDate(pub String); // TODO
 
 
 impl TryFrom<String> for UTCDate {
@@ -162,8 +167,16 @@ fn deserialize_bool<'de, D>(deserializer: D) -> Result<bool, D::Error>
 where
     D: serde::Deserializer<'de>,
 {
-    let value = f64::deserialize(deserializer)?;
-    Ok(value != 0.0)
+    #[derive(Deserialize)]
+    #[serde(untagged)]
+    enum BoolOrNum {
+        Bool(bool),
+        Float(f64),
+    }
+    match BoolOrNum::deserialize(deserializer)? {
+        BoolOrNum::Bool(b) => Ok(b),
+        BoolOrNum::Float(f) => Ok(f != 0.0),
+    }
 }
 
 
@@ -324,7 +337,10 @@ pub struct Email {
     pub id: Id,
     pub blob_id: Id,
     pub thread_id: Id,
-    pub mailbox_ids: HashMap<Id, bool>,
+    pub mailbox_ids: HashMap<Id, bool>, // TODO: bool deserial issues?
+    pub keywords: HashMap<String, bool>,
+    pub size: u32,
+    pub received_at: UTCDate,
     // MESSAGE
     pub message_id: Option<Vec<String>>,
     pub in_reply_to: Option<Vec<String>>,
@@ -348,7 +364,7 @@ pub struct Email {
     pub preview: String,
 }
 
-// ===================== Request Response types =====================
+// ===================== Request / Response types =====================
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -358,6 +374,8 @@ pub struct Request {
     pub created_ids: Option<HashMap<Id, Id>>,
 }
 
+
+// GET
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct GetRequest {
@@ -369,9 +387,8 @@ pub struct GetRequest {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailGetRequest {
-    pub account_id: Id,
-    pub ids: Option<Vec<Id>>,
-    pub properties: Option<Vec<String>>,
+    #[serde(flatten)]
+    pub get_request: GetRequest,
     // [ "id", "blobId", "threadId", "mailboxIds", "keywords", "size",
     //  "receivedAt", "messageId", "inReplyTo", "references", "sender", "from",
     //  "to", "cc", "bcc", "replyTo", "subject", "sentAt", "hasAttachment",
@@ -387,6 +404,113 @@ pub struct EmailGetRequest {
 
 }
 
+// FilterCondition
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailFilterCondition {
+    pub in_mailbox: Option<Id>,
+    pub in_mailbox_other_than: Option<Vec<Id>>,
+    pub before: Option<UTCDate>,
+    pub after: Option<UTCDate>,
+    pub min_size: Option<u32>,
+    pub max_size: Option<u32>,
+    pub all_in_thread_have_keyword: Option<String>,
+    pub some_in_thread_have_keyword: Option<String>,
+    pub none_in_thread_have_keyword: Option<String>,
+    pub has_keyword: Option<String>,
+    pub not_keyword: Option<String>,
+    pub has_attachment: Option<bool>, // TODO
+    pub text: Option<String>,
+    pub from: Option<String>,
+    pub to: Option<String>,
+    pub cc: Option<String>,
+    pub bcc: Option<String>,
+    pub subject: Option<String>,
+    pub body: Option<String>,
+    pub header: Option<Vec<String>>,
+}
+
+
+// QUERY
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryRequest {
+    pub account_id: Id,
+    pub filter: Option<String>, // TODO
+    pub sort: Option<bool>, // TODO
+    pub position: i32,
+    pub anchor: Option<Id>,
+    pub anchor_offset: i32,
+    pub limit: u32,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub calculate_total: bool
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Operator {
+    AND,
+    OR,
+    NOT
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
+pub enum FilterOpCo {
+    FilterOperator(FilterOperator),
+    EmailFilterCondition(EmailFilterCondition),
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct FilterOperator {
+    pub operator: Operator,
+    pub conditions: Vec<FilterOpCo>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub enum ComparatorProperty {
+    ReceivedAt,
+    Size,
+    From,
+    To,
+    Subject,
+    SentAt,
+    HasKeyword,
+    AllInThreadHaveKeyword,
+    SomeInThreadHaveKeyword,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Comparator {
+    pub property: ComparatorProperty,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub is_ascending: bool,
+    pub collation: Option<String>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct EmailQueryRequest {
+    pub account_id: Id,
+    pub filter: FilterOperator,
+    pub sort: Option<Vec<Comparator>>,
+    pub position: i32,
+    pub anchor: Option<Id>,
+    pub anchor_offset: Option<i32>,
+    pub limit: u32,
+    // #[serde(deserialize_with = "deserialize_bool")]
+    pub calculate_total: bool,
+    // #[serde(deserialize_with = "deserialize_bool")]
+    pub collapse_threads: bool,
+}
+
+
+// Responses
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
@@ -405,10 +529,29 @@ pub struct GetResponse {
     pub not_found: Vec<Id>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct QueryResponse {
+    pub account_id: Id,
+    pub query_state: String,
+    #[serde(deserialize_with = "deserialize_bool")]
+    pub can_calculate_changes: bool,
+    pub position: u32,
+    pub ids: Vec<Id>,
+    pub total: Option<u32>,
+    pub limit: Option<u32>
+}
+
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub enum Responses {
+    GetResponse(GetResponse),
+    QueryResponse(QueryResponse),
+}
 
 pub type MethodResponse = (
     String,
-    GetResponse,
+    Responses,
     Id,
 );
 
