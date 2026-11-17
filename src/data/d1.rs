@@ -28,7 +28,7 @@ impl D1Store {
         Ok(result.results::<types::Account>()?)
     }
 
-    pub async fn get_state(&self, api: &API, state_type: String) -> Result<types::State> {
+    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<types::State> {
         let statement = self.db.prepare(
             format!("SELECT {} FROM state
             WHERE id = ?1", state_type)
@@ -36,8 +36,8 @@ impl D1Store {
         let statement = statement.bind(&[
             hex::encode(api.hash).into()
         ])?;
-        match statement.first::<u8>(Some(state_type.as_str())).await? { // TODO
-            Some(state) => Ok(types::State { state: state.to_string() }),
+        match statement.first::<u8>(Some(state_type)).await? { // TODO
+            Some(state) => Ok(types::State(state.to_string())),
             None => Err("State not found".into()),
         }
     }
@@ -80,51 +80,21 @@ impl D1Store {
         let result = statement.all().await?;
         Ok(result.results::<Email>()?)
     }
-    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Email>> {
+    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Id>> {
+
         let statement = self.db.prepare(
-            "SELECT * FROM emails
-            WHERE id = ?1"
+            "SELECT DISTINCT id FROM emails
+            JOIN email_mailbox ON emails.id = email_mailbox.email_id
+            JOIN mailboxes ON email_mailbox.mailbox_id = mailboxes.id
+            WHERE mailboxes.accountId = ?1
+            AND (
+                -- filters will be added here
+            )"
         );
-        Ok(vec![Email {
-            id: Id("v".parse()?),
-            blob_id: Id("v".parse()?),
-            thread_id: Id("v".parse()?),
-            mailbox_ids: Default::default(),
-            keywords: Default::default(),
-            size: 0,
-            received_at: types::UTCDate("a".parse()?),
-            message_id: None,
-            in_reply_to: None,
-            references: None,
-            sender: None,
-            from: None,
-            to: None,
-            cc: None,
-            bcc: None,
-            reply_to: None,
-            subject: None,
-            sent_at: None,
-            body_structure: types::EmailBodyPart {
-                part_id: None,
-                blob_id: None,
-                size: 0,
-                headers: vec![],
-                name: None,
-                part_type: "".to_string(),
-                charset: None,
-                disposition: None,
-                cid: None,
-                language: None,
-                location: None,
-                sub_parts: None,
-            },
-            body_values: Default::default(),
-            text_body: vec![],
-            html_body: vec![],
-            attachments: vec![],
-            has_attachment: false,
-            preview: "".to_string(),
-        }])
+        let statement = statement.bind(&[
+            // JsValue::from(request.query_request.account_id.0)
+        ])?;
+        Ok(vec![Id("a".parse()?)])
     }
 }
 

@@ -8,7 +8,7 @@ pub async fn handle(
     mut _req: Request,
     _env: Env,
     _ctx: Context,
-    _data: Data
+    data: Data
 ) -> worker::Result<Response> {
     let api = match API::try_new(&_req) {
         Some(api) => api,
@@ -20,7 +20,7 @@ pub async fn handle(
     let mut response = types::Response {
         method_responses: Vec::with_capacity(method_calls.len()),
         created_ids: None,
-        session_state: _data.get_state(&api, "session".to_string()).await?,
+        session_state: data.get_state(&api, "session").await?,
     };
 
     for (method, args, id) in method_calls {
@@ -30,11 +30,14 @@ pub async fn handle(
             match method.as_str() {
                 "Mailbox/get" => {
                     let get_request: GetRequest = serde_json::from_value(args)?;
-                    let mailboxes = _data.get_all_mailboxes(&get_request.account_id).await?;
-                    Responses::GetResponse(GetResponse {
+                    let (mailboxes, state) = futures::try_join!(
+                        data.get_all_mailboxes(&get_request.account_id),
+                        data.get_state(&api, "mailbox")
+                        )?;
+                    Responses::MailboxGetResponse(GetResponse {
                         account_id: get_request.account_id,
-                        state: _data.get_state(&api, "mailbox".to_string()).await?,
-                        list: serde_json::to_value(mailboxes)?,
+                        state,
+                        list: mailboxes,
                         not_found: vec![],
                     })
                 }
@@ -51,23 +54,20 @@ pub async fn handle(
                     // }
                 }
                 "Email/query" => {
-                    console_log!("test 54");
-                    // console_log!("{:?}", args);
                     let request: EmailQueryRequest = serde_json::from_value(args)?;
-                    console_log!("{:?}", request);
-                    return Response::error("", 400);
-                    // console_log!("test 56");
-                    // let emails = _data.query_emails(&request).await?;
-                    // console_log!("test 58");
-                    // Responses::QueryResponse(types::QueryResponse {
-                    //     account_id: request.account_id,
-                    //     query_state: "".to_string(),
-                    //     can_calculate_changes: false,
-                    //     position: 0,
-                    //     ids: vec![],
-                    //     total: None,
-                    //     limit: None,
-                    // })
+                    let (emails, query_state) = futures::try_join!(
+                        data.query_emails(&request),
+                        data.get_state(&api, "email")
+                    )?;
+                    Responses::QueryResponse(types::QueryResponse {
+                        account_id: request.query_request.account_id,
+                        query_state, // TODO
+                        can_calculate_changes: false,
+                        position: 0,
+                        ids: vec![],
+                        total: None,
+                        limit: None,
+                    })
                 }
                 _ => {
                     console_log!("{:?} not found", method);

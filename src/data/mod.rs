@@ -26,7 +26,7 @@ impl Data {
         self.db.get_accounts(api).await
     }
 
-    pub async fn get_state(&self, api: &API, state_type: String) -> Result<types::State> {
+    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<types::State> {
         self.db.get_state(api, state_type).await
     }
 
@@ -34,7 +34,7 @@ impl Data {
         self.db.get_all_mailboxes(account_id).await
     }
 
-    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Email>> {
+    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Id>> {
         self.db.query_emails(request).await
     }
 }

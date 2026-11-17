@@ -3,9 +3,7 @@ use std::hash::Hash;
 use std::iter::Filter;
 use serde::Serialize;
 use serde::Deserialize;
-
-
-
+use crate::wasm_bindgen::JsValue;
 // TODO: Add EmailAddress struct?
 
 
@@ -181,9 +179,7 @@ where
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct State {
-    pub state: String
-}
+pub struct State(pub String);
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -366,6 +362,7 @@ pub struct Email {
 
 // ===================== Request / Response types =====================
 
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct Request {
@@ -432,19 +429,129 @@ pub struct EmailFilterCondition {
 }
 
 
+pub struct SQLFilter<'a> {
+    pub clauses: Vec<&'a str>,
+    pub params: Vec<JsValue>,
+}
+
+impl EmailFilterCondition {
+    fn create_sql(self) -> SQLFilter<'static> {
+        let mut clauses: Vec<&str> = Vec::new();
+        let mut params: Vec<JsValue> = Vec::new();
+
+        if let Some(in_mailbox) = self.in_mailbox {
+            clauses.push("email_mailbox.id = ?");
+            params.push(JsValue::from(in_mailbox.0));
+        };
+        if let Some(in_mailbox_other_than) = self.in_mailbox_other_than {
+            clauses.push("email_mailbox.id NOT IN ?");
+            params.push(JsValue::from(in_mailbox_other_than)); // TODO
+        }
+        if let Some(before) = self.before {
+            clauses.push("emails.receivedAt < ?");
+            params.push(JsValue::from(before));
+        }
+        if let Some(after) = self.after {
+            clauses.push("emails.receivedAt >= ?");
+            params.push(JsValue::from(after));
+        }
+        if let Some(min_size) = self.min_size {
+            clauses.push("emails.size >= ?");
+            params.push(JsValue::from(min_size));
+        }
+        if let Some(max_size) = self.max_size {
+            clauses.push("emails.size < ?");
+            params.push(JsValue::from(max_size));
+        }
+        if let Some(keyword) = self.all_in_thread_have_keyword {
+            clauses.push("email.threadId (\
+            SELECT threadId FROM email \
+            GROUP BY threadId \
+            HAVING SUM( \
+                CASE \
+                    WHEN keyword NOT LIKE ? THEN 1 \
+                    ELSE 0 \
+                END \
+            ) = 0");
+            params.push(JsValue::from(format!("%{}%", keyword)));
+        }
+        if let Some(keyword) = self.some_in_thread_have_keyword {
+            clauses.push("email.threadId (\
+            SELECT threadId FROM email \
+            GROUP BY threadId \
+            HAVING SUM( \
+                CASE \
+                    WHEN keyword NOT LIKE ? THEN 0 \
+                    ELSE 1 \
+                END \
+            ) > 0");
+            params.push(JsValue::from(format!("%{}%", keyword)));
+        }
+        if let Some(keyword) = self.none_in_thread_have_keyword {
+            clauses.push("email.threadId (\
+            SELECT threadId FROM email \
+            GROUP BY threadId \
+            HAVING SUM( \
+                CASE \
+                    WHEN keyword NOT LIKE ? THEN 0 \
+                    ELSE 1 \
+                END \
+            ) = 0");
+            params.push(JsValue::from(format!("%{}%", keyword)));
+        }
+        if let Some(keyword) = self.has_keyword {
+            clauses.push("? LIKE emails.keywords");
+            params.push(JsValue::from(format!("%{}%", keyword)));
+        }
+        if let Some(keyword) = self.not_keyword {
+            clauses.push("? NOT LIKE emails.keywords");
+            params.push(JsValue::from(format!("%{}%", keyword)));
+        }
+        if let Some(keyword) = self.text {
+            // TODO
+        }
+        if let Some(from) = self.from {
+            clauses.push("? LIKE emails.from");
+            params.push(JsValue::from(format!("%{}%", from)));
+        }
+        if let Some(to) = self.to {
+            clauses.push("? LIKE emails.to");
+            params.push(JsValue::from(format!("%{}%", to)));
+        }
+        if let Some(cc) = self.cc {
+            clauses.push("? LIKE emails.cc");
+            params.push(JsValue::from(format!("%{}%", cc)));
+        }
+        if let Some(bcc) = self.bcc {
+            clauses.push("? LIKE emails.bcc");
+            params.push(JsValue::from(format!("%{}%", bcc)));
+        }
+        if let Some(subject) = self.subject {
+            clauses.push("? LIKE emails.subject");
+            params.push(JsValue::from(format!("%{}%", subject)));
+        }
+
+        SQLFilter {
+            clauses,
+            params,
+        }
+    }
+}
+
+
 // QUERY
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct QueryRequest {
     pub account_id: Id,
-    pub filter: Option<String>, // TODO
-    pub sort: Option<bool>, // TODO
+    pub filter: FilterOpCo,
+    pub sort: Option<Vec<Comparator>>,
     pub position: i32,
     pub anchor: Option<Id>,
-    pub anchor_offset: i32,
+    pub anchor_offset: Option<i32>,
     pub limit: u32,
     #[serde(deserialize_with = "deserialize_bool")]
-    pub calculate_total: bool
+    pub calculate_total: bool,
 }
 
 
@@ -496,16 +603,9 @@ pub struct Comparator {
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
 pub struct EmailQueryRequest {
-    pub account_id: Id,
-    pub filter: FilterOperator,
-    pub sort: Option<Vec<Comparator>>,
-    pub position: i32,
-    pub anchor: Option<Id>,
-    pub anchor_offset: Option<i32>,
-    pub limit: u32,
-    // #[serde(deserialize_with = "deserialize_bool")]
-    pub calculate_total: bool,
-    // #[serde(deserialize_with = "deserialize_bool")]
+    #[serde(flatten)]
+    pub query_request: QueryRequest,
+    #[serde(deserialize_with = "deserialize_bool")]
     pub collapse_threads: bool,
 }
 
@@ -514,18 +614,10 @@ pub struct EmailQueryRequest {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(rename_all = "camelCase")]
-pub struct Response {
-    pub method_responses: Vec<MethodResponse>,
-    pub created_ids: Option<HashMap<Id, Id>>,
-    pub session_state: State,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(rename_all = "camelCase")]
-pub struct GetResponse {
+pub struct GetResponse<T> {
     pub account_id: Id,
     pub state: State,
-    pub list: serde_json::Value,
+    pub list: Vec<T>,
     pub not_found: Vec<Id>,
 }
 
@@ -533,7 +625,7 @@ pub struct GetResponse {
 #[serde(rename_all = "camelCase")]
 pub struct QueryResponse {
     pub account_id: Id,
-    pub query_state: String,
+    pub query_state: State,
     #[serde(deserialize_with = "deserialize_bool")]
     pub can_calculate_changes: bool,
     pub position: u32,
@@ -544,8 +636,10 @@ pub struct QueryResponse {
 
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(untagged)]
 pub enum Responses {
-    GetResponse(GetResponse),
+    MailboxGetResponse(GetResponse<Mailbox>),
+    EmailGetResponse(GetResponse<Email>),
     QueryResponse(QueryResponse),
 }
 
@@ -554,4 +648,13 @@ pub type MethodResponse = (
     Responses,
     Id,
 );
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct Response {
+    pub method_responses: Vec<MethodResponse>,
+    pub created_ids: Option<HashMap<Id, Id>>,
+    pub session_state: State,
+}
+
 
