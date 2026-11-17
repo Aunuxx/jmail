@@ -1,5 +1,4 @@
 use worker::*;
-
 use crate::data::Data;
 mod session;
 pub mod api;
@@ -9,19 +8,18 @@ pub mod api;
 pub async fn handle(
     req: Request,
     env: Env,
-    ctx: Context,
 ) -> Result<Response> {
     let path = req.path();
     let data = Data::new(&env)?;
     match path.as_str() {
-        "/.well-known/jmap" => {
-            session::handle(req, env, ctx, data).await
+        "/.well-known/types" => {
+            session::handle(req, data).await
         }
         "/" => {
             Response::ok("")
         }
         "/api" => {
-            api::handle(req, env, ctx, data).await
+            api::handle(req, data).await
         }
         // _ if path.starts_with("/upload/") => {
         //     upload::handle(req, env, ctx).await

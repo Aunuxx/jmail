@@ -1,4 +1,4 @@
-mod jmap;
+mod types;
 pub mod routes;
 pub mod data;
 pub use worker::*;
@@ -8,9 +8,9 @@ pub mod auth;
 async fn fetch(
     req: Request,
     env: Env,
-    ctx: Context,
+    _ctx: Context,
 ) -> Result<Response> {
-    routes::handle(req, env, ctx).await
+    routes::handle(req, env).await
 }
 
 

@@ -6,8 +6,8 @@ mod r2;
 use worker::{console_log, Bucket, Env, Result};
 use crate::auth::api::API;
 use crate::data::d1::D1Store;
-use crate::jmap::types;
-use crate::jmap::types::{Email, EmailBodyPart, EmailGetRequest, Id, Mailbox};
+use crate::types::{objects, internal, requests};
+use internal::Id;
 
 pub struct Data {
     db: D1Store,
@@ -22,19 +22,19 @@ impl Data {
         })
     }
     
-    pub async fn get_accounts(&self, api: &API) -> Result<Vec<types::Account>> {
+    pub async fn get_accounts(&self, api: &API) -> Result<Vec<objects::Account>> {
         self.db.get_accounts(api).await
     }
 
-    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<types::State> {
+    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<internal::State> {
         self.db.get_state(api, state_type).await
     }
 
-    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<Mailbox>> {
+    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<objects::Mailbox>> {
         self.db.get_all_mailboxes(account_id).await
     }
 
-    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Id>> {
+    pub async fn query_emails(&self, request: &requests::EmailQueryRequest) -> Result<Vec<Id>> {
         self.db.query_emails(request).await
     }
 }

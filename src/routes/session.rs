@@ -4,16 +4,14 @@ use crate::data::Data;
 use crate::auth::api::API;
 
 pub async fn handle(
-    _req: Request,
-    _env: Env,
-    _ctx: Context,
-    _data: Data
+    req: Request,
+    data: Data
 ) -> worker::Result<Response> {
-    let api = match API::try_new(&_req) {
+    let api = match API::try_new(&req) {
         Some(api) => api,
         None => return Response::error("API format invalid", 401),
     };
-    let accounts = _data.get_accounts(&api).await?;
+    let accounts = data.get_accounts(&api).await?;
     if accounts.is_empty() {
         return Response::error("Invalid API key", 401);
     }
@@ -22,7 +20,7 @@ pub async fn handle(
         None => return Response::error("No Primary Account", 403),
     };
 
-    let state = _data.get_state(&api, "session").await?;
+    let state = data.get_state(&api, "session").await?;
 
     let mut account_map = Map::new();
 
@@ -34,7 +32,7 @@ pub async fn handle(
                 "isReadOnly": !account.can_read,
                 "isPersonal": true,
                 "accountCapabilities": {
-                    "urn:ietf:params:jmap:mail": {}
+                    "urn:ietf:params:types:mail": {}
                 }
             }),
         );
@@ -42,7 +40,7 @@ pub async fn handle(
     let response =
         json!({
             "capabilities": {
-                "urn:ietf:params:jmap:core": {
+                "urn:ietf:params:types:core": {
                     "maxSizeUpload": 50000000,
                     "maxConcurrentUpload": 4,
                     "maxSizeRequest": 10000000,
@@ -54,7 +52,7 @@ pub async fn handle(
                 },
             },
             "accounts": account_map,
-            "primaryAccounts": { "urn:ietf:params:jmap:mail": primary.id },
+            "primaryAccounts": { "urn:ietf:params:types:mail": primary.id },
             "username": primary.email,
             "apiUrl": "http://192.168.1.33:8787/api",
             "downloadUrl": "http://192.168.1.33:8787/download/{accountId}/{blobId}/{name}?accept={type}",

@@ -1,9 +1,9 @@
 use worker::*;
-use crate::jmap::types;
 use crate::auth::api::API;
+use crate::types::{objects, internal, requests};
+use internal::Id;
 use hex;
 use worker::wasm_bindgen::JsValue;
-use crate::jmap::types::{D1Mailbox, Email, EmailGetRequest, Id, Mailbox};
 
 pub struct D1Store {
     db: D1Database,
@@ -16,7 +16,7 @@ impl D1Store {
         Self { db }
     }
 
-    pub async fn get_accounts(&self, api: &API) -> Result<Vec<types::Account>> {
+    pub async fn get_accounts(&self, api: &API) -> Result<Vec<objects::Account>> {
         let statement = self.db.prepare(
             "SELECT * FROM accounts
              WHERE hash = ?1"
@@ -25,10 +25,10 @@ impl D1Store {
             hex::encode(api.hash).into()
         ])?;
         let result = statement.all().await?;
-        Ok(result.results::<types::Account>()?)
+        Ok(result.results::<objects::Account>()?)
     }
 
-    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<types::State> {
+    pub async fn get_state(&self, api: &API, state_type: &str) -> Result<internal::State> {
         let statement = self.db.prepare(
             format!("SELECT {} FROM state
             WHERE id = ?1", state_type)
@@ -37,12 +37,12 @@ impl D1Store {
             hex::encode(api.hash).into()
         ])?;
         match statement.first::<u8>(Some(state_type)).await? { // TODO
-            Some(state) => Ok(types::State(state.to_string())),
+            Some(state) => Ok(internal::State(state.to_string())),
             None => Err("State not found".into()),
         }
     }
 
-    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<Mailbox>> {
+    pub async fn get_all_mailboxes(&self, account_id: &Id) -> Result<Vec<objects::Mailbox>> {
         let statement = self.db.prepare(
             "SELECT * FROM mailboxes
             WHERE accountId = ?1"
@@ -51,11 +51,11 @@ impl D1Store {
             JsValue::from(account_id.0.clone()),
         ])?;
         let result = statement.all().await?;
-        let rows = result.results::<D1Mailbox>()?;
-        Ok(rows.into_iter().map(Mailbox::from).collect())
+        let rows = result.results::<objects::D1Mailbox>()?;
+        Ok(rows.into_iter().map(objects::Mailbox::from).collect())
     }
 
-    pub  async fn get_emails(&self, request: &EmailGetRequest) -> Result<Vec<Email>> {
+    pub  async fn get_emails(&self, request: &requests::EmailGetRequest) -> Result<Vec<objects::Email>> {
         let properties: Vec<String> = request.get_request.properties
             .clone()
             .unwrap_or_else(||
@@ -78,9 +78,9 @@ impl D1Store {
             JsValue::from(properties)
         ])?;
         let result = statement.all().await?;
-        Ok(result.results::<Email>()?)
+        Ok(result.results::<objects::Email>()?)
     }
-    pub async fn query_emails(&self, request: &types::EmailQueryRequest) -> Result<Vec<Id>> {
+    pub async fn query_emails(&self, request: &requests::EmailQueryRequest) -> Result<Vec<Id>> {
 
         let statement = self.db.prepare(
             "SELECT DISTINCT id FROM emails
@@ -88,7 +88,7 @@ impl D1Store {
             JOIN mailboxes ON email_mailbox.mailbox_id = mailboxes.id
             WHERE mailboxes.accountId = ?1
             AND (
-                -- filters will be added here
+
             )"
         );
         let statement = statement.bind(&[
